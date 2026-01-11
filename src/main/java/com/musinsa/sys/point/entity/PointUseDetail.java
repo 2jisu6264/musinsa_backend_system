@@ -1,6 +1,5 @@
 package com.musinsa.sys.point.entity;
 
-import com.musinsa.sys.common.util.DateUtil;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

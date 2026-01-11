@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 public class PointUseApprovalReq  {
 
-		@NotNull
+	@NotNull(message = "회원ID를 입력하세요.")
 		private Long memberId;
 
 		@NotNull(message = "거래금액을 입력하세요.")

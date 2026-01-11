@@ -18,7 +18,7 @@ public interface OrderSequenceRepository extends JpaRepository<OrderSequenceLog,
     select o
     from order_sequence_log o
     where o.orderDate = :orderDateTime
-""")
+    """)
     Optional<OrderSequenceLog> findForUpdate(
             @Param("orderDateTime") String orderDateTime
     );

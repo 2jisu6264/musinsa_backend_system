@@ -8,9 +8,9 @@ CREATE TABLE member
 );
 CREATE TABLE order_sequence_log
 (
-    order_date   CHAR(15)     NOT NULL,
-    seq     INT         NOT NULL,
-    created_at   TIMESTAMP   NOT NULL,
+    order_date   CHAR(15)     NOT NULL COMMENT '주문일자 YYYYMMdd',
+    seq     INT         NOT NULL COMMENT '주문번호 시퀀스',
+    created_at   TIMESTAMP   NOT NULL COMMENT '작성일자',
     PRIMARY KEY (order_date)
 );
 CREATE TABLE point_log
@@ -39,7 +39,7 @@ CREATE TABLE point_wallet
     issued_amount  BIGINT  NOT NULL COMMENT '지급 금액',
     used_amount    BIGINT DEFAULT 0 COMMENT '사용 금액',
     expired_amount BIGINT DEFAULT 0 COMMENT '만료 금액',
-    wallet_status  CHAR(2) DEFAULT 00 NOT NULL COMMENT '지갑 상태 (00:보관, 01:취소,02:만료)',
+    wallet_status  CHAR(2) DEFAULT 00 NOT NULL COMMENT '지갑 상태 (00:보관, 01:취소)',
     expire_date    DATETIME(0) NOT NULL COMMENT '만료 일자',
     source_type CHAR(2) NOT NULL COMMENT '지급 출처',
     created_at     DATETIME(0) NOT NULL COMMENT '등록일시',

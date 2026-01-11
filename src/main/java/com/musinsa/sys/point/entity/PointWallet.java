@@ -1,6 +1,5 @@
 package com.musinsa.sys.point.entity;
 
-import com.musinsa.sys.common.util.DateUtil;
 import com.musinsa.sys.point.dto.PointSavingApprovalReq;
 import com.musinsa.sys.point.enums.WalletSourceType;
 import jakarta.persistence.*;

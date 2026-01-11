@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
     //@Valid를 통해 발견된 MethodArgumentNotValidException 처리
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProcessResult<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        return new ProcessResult<>(null, ProcessCode.HCO998.getProcCd());
+        return new ProcessResult<>(null, ProcessCode.MP998.getProcCd());
     }
 
     // 404 Not Found 처리
@@ -29,6 +29,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>("리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
     }
 
+    // ServiceException 처리
     @ExceptionHandler(ServiceException.class)
     public ResponseEntity<?> handleException(ServiceException ex) {
         log.info(StringUtil.getStackTraceToString(ex));
@@ -39,6 +40,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleException(Exception ex) {
         log.info(StringUtil.getStackTraceToString(ex));
-        return new ResponseEntity<>(new ProcessResult<>(null, ProcessCode.HCO999.getProcCd()), HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(new ProcessResult<>(null, ProcessCode.MP999.getProcCd()), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
