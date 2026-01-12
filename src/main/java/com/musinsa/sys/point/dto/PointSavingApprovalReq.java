@@ -25,7 +25,6 @@ public class PointSavingApprovalReq  {
 	@NotNull
 	private LocalDateTime logAt;
 
-	@NotNull(message = "포인트만료일을 입력하세요.")
 	@JsonFormat(pattern = "yyyyMMdd")
 	private LocalDate  expireDate;
 }

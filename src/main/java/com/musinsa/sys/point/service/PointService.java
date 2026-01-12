@@ -1,7 +1,9 @@
 package com.musinsa.sys.point.service;
 
+import com.musinsa.sys.common.constants.Val;
 import com.musinsa.sys.common.enums.ProcessCode;
 import com.musinsa.sys.common.exception.ServiceException;
+import com.musinsa.sys.common.util.DateUtil;
 import com.musinsa.sys.member.entity.Member;
 import com.musinsa.sys.member.repository.MemberRepository;
 import com.musinsa.sys.order.component.OrderNoGenerator;
@@ -55,22 +57,26 @@ public class PointService {
 
         Long memberId = pointSavingApprovalReq.getMemberId();
         Long amount = pointSavingApprovalReq.getAmount();
+        LocalDateTime logAt = pointSavingApprovalReq.getLogAt();
 
         PointLog pointLog = new PointLog();
 
         //거래구분코드 확인
         pointLog.setLogType(PointLogType.SAVING_APPROVAL.getCode());
 
+        //만료일 미입력시 기본 1년 셋팅
+        LocalDate expireDate =
+                DateUtil.resolveExpireDate(pointSavingApprovalReq.getExpireDate(), pointSavingApprovalReq.getLogAt());
+
         // 회원 조회 + 락 (동시성 제어)
         Member member = getMember(memberId);
         // 적립 정책 검증 ( 1회 충전금액, 총보유금액, 만료일)
         validateSavingAmount(amount);                 // 1회 적립 금액 제한
         validateBalanceLimit(member.getPointBalance(), amount); // 총 보유 한도
-        validateExpireDate(pointSavingApprovalReq.getExpireDate()); // 만료일 범위 검증
-
+        validateExpireDate(expireDate); // 만료일 범위 검증
 
         pointLog.setAmount(amount);
-        pointLog.setLogAt(pointSavingApprovalReq.getLogAt());
+        pointLog.setLogAt(logAt);
 
         // 적립승인 로그 기록 (원장성 로그)
         pointLogRepository.save(PointLog.from(memberId, amount, PointLogType.SAVING_APPROVAL.getCode(), pointSavingApprovalReq.getLogAt()));
@@ -102,6 +108,7 @@ public class PointService {
         Long walletId = pointSavingCancelReq.getWalletId();
 
         PointLog pointLog = new PointLog();
+
         //거래구분코드
         pointLog.setLogType(PointLogType.SAVING_CANCEL.getCode());
 
@@ -122,7 +129,7 @@ public class PointService {
         PointWallet cancelWallet = getCancelWallet(memberId, walletId);
 
         // 헤딩 wallet 비활성화 구분코드 취소로 변경
-        cancelWallet.setWalletStatus("10");
+        cancelWallet.setWalletStatus(Val.CANCEL);
         pointWalletRepository.save(cancelWallet);
 
         return new PointResp(memberId, amount);
@@ -158,7 +165,7 @@ public class PointService {
         member.subsPointBalance(amount);
         memberRepository.save(member);
 
-        return new PointUseApprovalResp(memberId, orderNo, member.getPointBalance());
+        return new PointUseApprovalResp(memberId, orderNo, amount);
     }
 
     /**
@@ -196,7 +203,7 @@ public class PointService {
         cancelLog.setLogType(PointLogType.USE_CANCEL.getCode());
         cancelLog.setAmount(cancelAmount);
         cancelLog.setLogAt(pointUseCancelReq.getLogAt());
-        cancelLog.setCreatedAt(LocalDateTime.now().withNano(0));
+        cancelLog.setCreatedAt(DateUtil.getLocalDateTimeWithNano());
 
         pointLogRepository.save(cancelLog);
 
@@ -208,7 +215,7 @@ public class PointService {
         pointResp.setMemberId(memberId);
         pointResp.setAmount(member.getPointBalance());
 
-        return new PointResp(memberId);
+        return new PointResp(memberId, cancelAmount);
     }
 
     /**
@@ -237,7 +244,7 @@ public class PointService {
             throw new ServiceException("MP006");
         } else if (cancelWallet.getUsedAmount() > 0) {
             throw new ServiceException("MP008");
-        } else if (!cancelWallet.getWalletStatus().equals("00")) {
+        } else if (!cancelWallet.getWalletStatus().equals(Val.NORMAL)) {
             throw new ServiceException("MP009");
         }
         return cancelWallet;
@@ -269,7 +276,9 @@ public class PointService {
         long min = minPolicy.getPolicyValue();
         long max = maxPolicy.getPolicyValue();
 
-        if (amount < min || amount > max) {
+        if (amount < min ) {
+            throw new ServiceException("MP002"); // 1원 이상 충전 가능
+        }else if (amount > max) {
             throw new ServiceException("MP003"); // 적립금액 범위 초과
         }
     }
@@ -329,10 +338,9 @@ public class PointService {
 
             Long issuedAmount = pointWallet.getIssuedAmount();
             Long usedAmount = pointWallet.getUsedAmount();
-            Long expiredAmount = pointWallet.getExpiredAmount();
 
             // 실제 사용 가능한 금액
-            Long usableAmount = issuedAmount - usedAmount - expiredAmount;
+            Long usableAmount = issuedAmount - usedAmount;
 
             if (usableAmount <= 0) continue;
 
@@ -355,7 +363,7 @@ public class PointService {
         PointUseDetail pointUseDetail = new PointUseDetail();
         pointUseDetail.setOrderNo(pointLog.getOrderNo());
         pointUseDetail.setUsedAmount(pointLog.getAmount());
-        pointUseDetail.setCreatedAt(LocalDateTime.now().withNano(0));
+        pointUseDetail.setCreatedAt(DateUtil.getLocalDateTimeWithNano());
 
         pointUseDetailRepository.save(pointUseDetail);
     }
@@ -369,54 +377,65 @@ public class PointService {
      * - 만료된 포인트는 신규 wallet으로 재적립
      * - 사용 순서 역순(LIFO)으로 취소
      */
+
+    @Transactional
     public void useCancel(PointLog useLogs, Long cancelAmount) {
 
         long remainCancelAmount = cancelAmount;
         long memberId = useLogs.getMemberId();
+        long totalUsedAmount = useLogs.getAmount();
 
-        // 사전 검증: 취소 가능 금액 확인
-        long cancelableAmount = pointWalletRepository.getCancelableAmount(memberId);
+        // 1. 사전 검증
+        long canceledAmount =
+                pointLogRepository.getCanceledAmount(
+                        useLogs.getOrderNo(),
+                        PointLogType.USE_CANCEL.getCode()
+                );
 
-        if (cancelAmount > cancelableAmount) {
+        long cancelableAmount = totalUsedAmount - canceledAmount;
+
+        if (canceledAmount > cancelableAmount) {
             throw new ServiceException(ProcessCode.MP013.getProcCd());
         }
 
-        // 사용 순서 역순 wallet 조회
-        List<PointWallet> cancelTargetList = pointWalletRepository.findCancelWallets(memberId);
+        // 2. 사용 역순 wallet 조회 (LIFO)
+        List<PointWallet> cancelTargetList =
+                pointWalletRepository.findCancelWallets(memberId);
 
-        for (PointWallet pointWallet : cancelTargetList) {
+        for (PointWallet wallet : cancelTargetList) {
 
             if (remainCancelAmount <= 0) break;
 
-            long usedAmount = pointWallet.getUsedAmount();      // 이 wallet에서 사용된 금액
-            long expiredAmount = pointWallet.getExpiredAmount();// 이 wallet에서 만료된 금액
-
+            long usedAmount = wallet.getUsedAmount();
             if (usedAmount <= 0) continue;
 
-            // 이번 wallet에서 실제로 취소할 금액
-            long cancelTarget = Math.min(usedAmount, remainCancelAmount);
+            // 이번 wallet에서 실제 취소할 금액
+            long cancelTarget =
+                    Math.min(usedAmount, remainCancelAmount);
 
-            // 만료된 금액 중 취소 대상
-            long reSaveAmount = Math.min(expiredAmount, cancelTarget);
+            // 만료 wallet → 신규 적립
+            if (Val.EXPIRED.equals(wallet.getWalletStatus())) {
 
-            // 만료되지 않은 사용 금액
-            long restoreAmount = cancelTarget - reSaveAmount;
-
-            // 만료된 포인트 → 신규 적립 wallet 생성
-            if (reSaveAmount > 0) {
-                PointWallet newWallet = PointWallet.builder().memberId(memberId).issuedAmount(reSaveAmount).usedAmount(0L).expiredAmount(0L).walletStatus("00").expireDate(LocalDate.now().plusYears(1)).sourceType(WalletSourceType.RESAVING).createdAt(LocalDateTime.now()).build();
+                PointWallet newWallet = PointWallet.builder()
+                        .memberId(memberId)
+                        .issuedAmount(cancelTarget)
+                        .usedAmount(0L)
+                        .walletStatus(Val.NORMAL)
+                        .expireDate(LocalDate.now().plusYears(1))
+                        .sourceType(WalletSourceType.RESAVING)
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
                 pointWalletRepository.save(newWallet);
-            }
 
-            // 만료되지 않은 포인트 → 기존 wallet 복원
-            if (restoreAmount > 0) {
-                pointWallet.setUsedAmount(pointWallet.getUsedAmount() - restoreAmount);
-                pointWalletRepository.save(pointWallet);
+            }
+            // 정상 wallet → 기존 wallet 복원
+            else {
+                wallet.setUsedAmount(usedAmount - cancelTarget);
+                pointWalletRepository.save(wallet);
             }
 
             remainCancelAmount -= cancelTarget;
         }
-
     }
 }

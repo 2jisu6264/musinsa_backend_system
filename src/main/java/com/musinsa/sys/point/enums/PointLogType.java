@@ -2,9 +2,11 @@ package com.musinsa.sys.point.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.musinsa.sys.common.exception.ServiceException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,7 +28,7 @@ public enum PointLogType {
     public static PointLogType from(String code) {
         PointLogType type = CODE_MAP.get(code);
         if (type == null) {
-            throw new IllegalArgumentException("Invalid PointLogType: " + code);
+            throw new ServiceException("MP001");
         }
         return type;
     }

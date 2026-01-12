@@ -1,5 +1,7 @@
 package com.musinsa.sys.point.entity;
 
+import com.musinsa.sys.common.constants.Val;
+import com.musinsa.sys.common.util.DateUtil;
 import com.musinsa.sys.point.dto.PointSavingApprovalReq;
 import com.musinsa.sys.point.enums.WalletSourceType;
 import jakarta.persistence.*;
@@ -30,9 +32,6 @@ public class PointWallet {
     @Column(name = "used_amount")
     private Long usedAmount;
 
-    @Column(name = "expired_amount")
-    private Long expiredAmount;
-
     @Column(name = "wallet_status", length = 2, nullable = false)
     private String walletStatus;
 
@@ -49,11 +48,10 @@ public class PointWallet {
     public static PointWallet from(Long memberId, PointSavingApprovalReq pointSavingApprovalReq) {
         return PointWallet.builder()
                 .memberId(memberId)
-                .walletStatus("00")
+                .walletStatus(Val.NORMAL)
                 .sourceType(pointSavingApprovalReq.getSourceType())
                 .issuedAmount(pointSavingApprovalReq.getAmount())
                 .usedAmount(0L)
-                .expiredAmount(0L)
                 .expireDate(pointSavingApprovalReq.getExpireDate())
                 .createdAt(DateUtil.getLocalDateTimeWithNano())
                 .build();

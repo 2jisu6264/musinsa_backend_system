@@ -16,13 +16,40 @@ import java.util.List;
 @Repository
 public interface PointLogRepository extends JpaRepository<PointLog, Long> {
 
-    // 회원별 거래 내역 조회
-    PointLog findByMemberId(Long memberId);
+    /**
+     * 주문번호 기준 사용 승인 로그 단건 조회 (FOR UPDATE)
+     */
+    @Query(
+            value = """
+            SELECT *
+            FROM point_log
+            WHERE order_no = :orderNo
+              AND log_type = :logType
+            FOR UPDATE
+        """,
+            nativeQuery = true
+    )
+    PointLog findUseLogsByOrderNoForUpdate(
+            @Param("orderNo") String orderNo,
+            @Param("logType") String logType
+    );
 
-    PointLog findByOrderNo(String orderNo);
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from point_log p where p.orderNo = :orderNo AND p.logType = :logType")
-    PointLog findUseLogsByOrderNoForUpdate(@Param("orderNo") String orderNo, @Param("logType") String logType);
-
+    /**
+     * 주문번호 기준 사용 취소 누적 금액 조회
+     */
+    @Query(
+            value = """
+            SELECT COALESCE(SUM(pl.amount), 0)
+            FROM point_log pl
+            WHERE pl.order_no = :orderNo
+              AND pl.log_type = :cancelType
+        """,
+            nativeQuery = true
+    )
+    long getCanceledAmount(
+            @Param("orderNo") String orderNo,
+            @Param("cancelType") String cancelType
+    );
 }
+
 

@@ -31,7 +31,7 @@ public interface PointWalletRepository extends JpaRepository<PointWallet, Long> 
             value = """
                     SELECT *
                     FROM point_wallet
-                    WHERE wallet_status = '00'
+                    WHERE wallet_status IN ('00','20')
                       AND used_amount > 0
                       AND member_id = :memberId
                     ORDER BY expire_date DESC
@@ -39,19 +39,6 @@ public interface PointWalletRepository extends JpaRepository<PointWallet, Long> 
             nativeQuery = true
     )
     List<PointWallet> findCancelWallets(@Param("memberId") Long memberId);
-
-
-    @Query(
-            value = """
-                    SELECT COALESCE(SUM(used_amount), 0)
-                    FROM point_wallet
-                    WHERE wallet_status = '00'
-                      AND used_amount > 0
-                      AND member_id = :memberId
-                    """,
-            nativeQuery = true
-    )
-    long getCancelableAmount(@Param("memberId") Long memberId);
 
 }
 

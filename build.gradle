@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.musinsa'
 version = '0.0.1-SNAPSHOT'
-description = 'musinsa free point sys'
+description = 'musinsa free point system'
 
 java {
 	toolchain {

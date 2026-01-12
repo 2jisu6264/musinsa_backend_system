@@ -21,7 +21,6 @@ INSERT INTO point_wallet
     member_id,
     issued_amount,
     used_amount,
-    expired_amount,
     wallet_status,
     expire_date,
     source_type,
@@ -32,9 +31,8 @@ VALUES
         2,
         10000,
         0,
-        0,
         '00',
-        '2026-12-31 23:59:59',
+        '2026-12-31',
         'MA',
         CURRENT_TIMESTAMP
     );
@@ -55,6 +53,19 @@ VALUES
         FORMATDATETIME(CURRENT_TIMESTAMP, 'yyyy-MM-dd''T''HH:mm:ss'),
         NULL,
         10000,
+        CURRENT_TIMESTAMP
+    );
+
+INSERT INTO point_use_detail
+(
+    order_no,
+    used_amount,
+    created_at
+)
+VALUES
+    (
+        '20260204592039',
+        4000,
         CURRENT_TIMESTAMP
     );
 
